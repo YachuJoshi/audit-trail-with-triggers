@@ -1,0 +1,96 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "audit"]
+}
+
+model User {
+  id    Int    @id @default(autoincrement())
+  email String
+
+  orders          Order[]
+  productVersions ProductVersion[]
+  orderVersions   OrderVersion[]
+
+  @@schema("public")
+}
+
+model Product {
+  id       Int     @id @default(autoincrement())
+  name     String
+  price    Int     @default(0)
+  verified Boolean @default(false)
+
+  orders   Order[]
+  versions ProductVersion[]
+
+  @@schema("public")
+}
+
+model Order {
+  id        Int    @id @default(autoincrement())
+  userId    Int
+  productId Int
+  quantity  Int
+  status    String @default("PENDING")
+
+  user     User           @relation(fields: [userId], references: [id])
+  product  Product        @relation(fields: [productId], references: [id])
+  versions OrderVersion[]
+
+  @@schema("public")
+}
+
+enum AuditOperation {
+  INSERT
+  UPDATE
+  DELETE
+
+  @@schema("audit")
+}
+
+model ProductVersion {
+  // Version metadata fields
+  versionId        Int            @id @default(autoincrement())
+  versionOperation AuditOperation
+  versionProductId Int?
+  versionUserId    Int?
+  versionTimestamp DateTime
+
+  // Mirrored fields from the Product table
+  id       Int
+  name     String
+  verified Boolean @default(false)
+  price    Int     @default(0)
+
+  product Product? @relation(fields: [versionProductId], references: [id])
+  user    User?    @relation(fields: [versionUserId], references: [id])
+
+  @@schema("audit")
+}
+
+model OrderVersion {
+  // Version metadata fields
+  versionId        Int            @id @default(autoincrement())
+  versionOperation AuditOperation
+  versionOrderId   Int?
+  versionUserId    Int?
+  versionTimestamp DateTime
+
+  // Mirrored fields from the Order table
+  id        Int
+  userId    Int
+  productId Int
+  quantity  Int
+  status    String @default("PENDING")
+
+  order Order? @relation(fields: [versionOrderId], references: [id])
+  user  User?  @relation(fields: [versionUserId], references: [id])
+
+  @@schema("audit")
+}
